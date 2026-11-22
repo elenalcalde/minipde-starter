@@ -61,3 +61,50 @@ def test_variable_conductivity():
     error = np.max(np.abs(u - exact))
 
     assert error < 1e-5
+
+
+def test_second_order_convergence():
+    """Comprobar convergencia de segundo orden."""
+    errors = []
+
+    for n in [21, 41, 81, 161]:
+        x = create_mesh_1d(0, 1, n)
+
+        exact = 100 - 20 * x - 10 * x**2
+
+        u = solve_diffusion_stationary_1d(
+            x,
+            lambda x: 10 * (1 + x),
+            lambda x: 400 * (1 + x),
+            100,
+            20,
+            30,
+        )
+
+        errors.append(np.max(np.abs(u - exact)))
+
+    orders = np.log2(np.array(errors[:-1]) / np.array(errors[1:]))
+
+    assert np.allclose(orders, 2.0, atol=0.01)
+
+
+def test_global_energy_balance():
+    """Comprobar conservacion global de energia."""
+    x = create_mesh_1d(0, 1, 81)
+    dx = x[1] - x[0]
+
+    A, b = assemble_diffusion_stationary_1d(
+        x, lambda x: 10 * (1 + x), 100, 100, 20, 20
+    )
+
+    u = np.linalg.solve(A, b)
+
+    k_half = 0.5 * (10 * (1 + x[0]) + 10 * (1 + x[1]))
+
+    flux_in = -k_half * (u[1] - u[0]) / dx - 100 * dx / 2
+    flux_out = 20 * (u[-1] - 20)
+
+    balance = flux_out - flux_in - 100
+
+    assert abs(balance) < 1e-8
+    assert np.linalg.norm(A @ u - b, ord=np.inf) < 1e-8
