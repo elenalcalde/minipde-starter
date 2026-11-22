@@ -5,6 +5,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
+from minipde.linear_solvers import solve_tridiagonal
 from minipde.mesh import create_mesh_1d
 from minipde.models.diffusion_stationary import (
     assemble_diffusion_stationary_1d,
@@ -133,3 +134,63 @@ print(f"Flujo de entrada:   {flux_in:.6f}")
 print(f"Flujo de salida:    {flux_out:.6f}")
 print(f"Calor generado:     {heat_generated:.6f}")
 print(f"Defecto del balance:{balance:.6e}")
+
+
+# ============================================================
+# TABLA DE RESIDUOS Y BALANCE ENERGETICO - 4 MALLAS
+# ============================================================
+
+print("\nVERIFICACION NUMERICA - CASO MANUFACTURADO")
+print(
+    f"{'N':>5} {'Residuo':>15} "
+    f"{'Defecto balance':>20} {'Diferencia solvers':>20}"
+)
+print("-" * 65)
+
+for n in [21, 41, 81, 161]:
+    x_test = create_mesh_1d(0, 1, n)
+    dx_test = x_test[1] - x_test[0]
+
+    # Construccion del sistema
+    A_test, b_test = assemble_diffusion_stationary_1d(
+        x_test,
+        conductivity=lambda x: 10 * (1 + x),
+        source=lambda x: 400 * (1 + x),
+        u_left=100,
+        h_conv=20,
+        u_inf=30,
+    )
+
+    # Comparacion entre solvers
+    u_numpy = np.linalg.solve(A_test, b_test)
+    u_thomas = solve_tridiagonal(A_test, b_test)
+
+    difference = np.max(np.abs(u_numpy - u_thomas))
+
+    # Residuo algebraico
+    residual = np.linalg.norm(A_test @ u_numpy - b_test, ord=np.inf)
+
+    # Flujo de entrada
+    k_half = 0.5 * (
+        10 * (1 + x_test[0]) + 10 * (1 + x_test[1])
+    )
+
+    q_values = 400 * (1 + x_test)
+
+    flux_half = -k_half * (u_numpy[1] - u_numpy[0]) / dx_test
+
+    flux_in = flux_half - q_values[0] * dx_test / 2
+
+    # Flujo de salida (Robin)
+    flux_out = 20 * (u_numpy[-1] - 30)
+
+    # Generacion termica total
+    heat_generated = np.trapezoid(q_values, x_test)
+
+    # Defecto del balance
+    balance = flux_out - flux_in - heat_generated
+
+    print(
+        f"{n:5d} {residual:15.6e} "
+        f"{balance:20.6e} {difference:20.6e}"
+    )
