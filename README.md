@@ -37,3 +37,4 @@ en derivadas parciales, aplicando:
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
+
