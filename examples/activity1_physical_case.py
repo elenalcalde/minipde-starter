@@ -65,7 +65,7 @@ Path("figures").mkdir(exist_ok=True)
 plt.savefig("figures/activity1_physical_temperature.png", dpi=300)
 plt.show()
 
-
+physical_mesh_rows = []
 # Comparacion de mallas para el caso fisico
 print("\nCOMPARACION DE MALLAS - CASO FISICO")
 print(" N       dx         T_final (°C)     Variacion (°C)")
@@ -92,14 +92,14 @@ for n in [21, 41, 81, 161]:
         f"{n:3d}   {dx_test:.6f}     "
         f"{final_temperature:.6f}        {variation:.6e}"
     )
-
+    physical_mesh_rows.append([n, dx_test, final_temperature, variation])
     previous_temperature = final_temperature
 
 
 # ============================================================
 # VERIFICACION NUMERICA - CASO FISICO
 # ============================================================
-
+physical_verification_rows = []
 print("\nVERIFICACION NUMERICA - CASO FISICO")
 print(
     f"{'N':>5} {'Residuo':>15} "
@@ -142,3 +142,34 @@ for n in [21, 41, 81, 161]:
         f"{n:5d} {residual:15.6e} "
         f"{balance:20.6e} {difference:20.6e}"
     )
+    physical_verification_rows.append([n, residual, balance, difference])
+
+
+# ============================================================
+# GUARDAR RESULTADOS DEL CASO FISICO EN CSV
+# ============================================================
+
+results_dir = Path("results")
+results_dir.mkdir(exist_ok=True)
+
+# Tabla de comparacion de mallas
+np.savetxt(
+    results_dir / "activity1_physical_meshes.csv",
+    np.array(physical_mesh_rows),
+    delimiter=",",
+    header="N,dx,temperatura_final,variacion_temperatura",
+    comments="",
+    fmt=["%d", "%.8e", "%.8f", "%.8e"],
+)
+
+# Tabla de residuos y balance energetico
+np.savetxt(
+    results_dir / "activity1_physical_verification.csv",
+    np.array(physical_verification_rows),
+    delimiter=",",
+    header="N,residuo,defecto_balance,diferencia_solvers",
+    comments="",
+    fmt=["%d", "%.8e", "%.8e", "%.8e"],
+)
+
+print("\nTablas del caso fisico guardadas correctamente.")

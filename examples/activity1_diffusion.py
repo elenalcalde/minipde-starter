@@ -139,7 +139,7 @@ print(f"Defecto del balance:{balance:.6e}")
 # ============================================================
 # TABLA DE RESIDUOS Y BALANCE ENERGETICO - 4 MALLAS
 # ============================================================
-
+verification_rows = []
 print("\nVERIFICACION NUMERICA - CASO MANUFACTURADO")
 print(
     f"{'N':>5} {'Residuo':>15} "
@@ -194,3 +194,112 @@ for n in [21, 41, 81, 161]:
         f"{n:5d} {residual:15.6e} "
         f"{balance:20.6e} {difference:20.6e}"
     )
+
+    verification_rows.append([n, residual, balance, difference])
+
+# ============================================================
+# COMPARACION ENTRE SOLUCION EXACTA Y NUMERICA
+# ============================================================
+
+# Malla de 161 nodos
+x_plot = create_mesh_1d(0, 1, 161)
+
+# Solucion exacta manufacturada
+u_exact = 100 - 20 * x_plot - 10 * x_plot**2
+
+# Solucion numerica
+u_num = solve_diffusion_stationary_1d(
+    x_plot,
+    conductivity=lambda x: 10 * (1 + x),
+    source=lambda x: 400 * (1 + x),
+    u_left=100,
+    h_conv=20,
+    u_inf=30,
+)
+
+# Representacion grafica
+plt.figure(figsize=(8, 5))
+
+plt.plot(x_plot, u_exact, "k-", linewidth=2,
+         label="Solucion exacta")
+
+plt.plot(x_plot, u_num, "r--", linewidth=2,
+         label="Solucion numerica (N=161)")
+
+plt.xlabel("Posicion x (m)")
+plt.ylabel("Temperatura (°C)")
+plt.title("Comparacion entre solucion exacta y numerica")
+
+plt.grid(True, linestyle=":")
+plt.legend()
+plt.tight_layout()
+
+# Guardar figura
+Path("figures").mkdir(exist_ok=True)
+plt.savefig("figures/activity1_exact_vs_numerical.png", dpi=300)
+
+plt.show()
+
+
+# ============================================================
+# GUARDAR TABLA DE CONVERGENCIA EN CSV
+# ============================================================
+
+# Calcular el orden observado entre mallas
+orders_inf = [np.nan]
+orders_l2 = [np.nan]
+
+for i in range(1, len(mesh_sizes)):
+    ratio_h = h_values[i - 1] / h_values[i]
+
+    orders_inf.append(
+        np.log(linf_values[i - 1] / linf_values[i]) / np.log(ratio_h)
+    )
+
+    orders_l2.append(
+        np.log(l2_values[i - 1] / l2_values[i]) / np.log(ratio_h)
+    )
+
+# Crear carpeta para los resultados
+results_dir = Path("results")
+results_dir.mkdir(exist_ok=True)
+
+# Preparar tabla
+convergence_table = np.column_stack((
+    mesh_sizes,
+    h_values,
+    linf_values,
+    l2_values,
+    orders_inf,
+    orders_l2,
+))
+
+# Guardar archivo CSV
+np.savetxt(
+    results_dir / "activity1_convergence.csv",
+    convergence_table,
+    delimiter=",",
+    header="N,dx,error_Linf,error_L2,p_Linf,p_L2",
+    comments="",
+    fmt=["%d", "%.8e", "%.8e", "%.8e", "%.4f", "%.4f"],
+)
+
+print("\nTabla de convergencia guardada en results/activity1_convergence.csv")
+
+
+# ============================================================
+# GUARDAR TABLA DE RESIDUOS Y BALANCES EN CSV
+# ============================================================
+
+verification_table = np.array(verification_rows)
+
+np.savetxt(
+    results_dir / "activity1_verification.csv",
+    verification_table,
+    delimiter=",",
+    header="N,residuo,defecto_balance,diferencia_solvers",
+    comments="",
+    fmt=["%d", "%.8e", "%.8e", "%.8e"],
+)
+
+print("Tabla de verificacion guardada en results/activity1_verification.csv")
